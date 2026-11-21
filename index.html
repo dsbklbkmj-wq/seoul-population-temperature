@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>서울, 사람은 떠나고 집값은 오르다</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- 왼쪽 패널 -->
+  <aside class="panel">
+    <header class="panel-header">
+      <h1>서울, 사람은 떠나고<br>집값은 오르다</h1>
+      <p class="subtitle">2005~2025 서울 25개 구의 인구와 집값 변화 (5개 시점)</p>
+    </header>
+
+    <!-- 메시지 카드 -->
+    <div class="message-card">
+      <div class="message-icon">📉📈</div>
+      <p id="messageText">20년간 서울 인구는 <strong id="msgPop">-</strong> 줄었지만,<br>
+      평당 집값은 <strong id="msgPrice">-</strong> 올랐습니다.</p>
+      <p class="message-note" id="msgNote"></p>
+    </div>
+
+    <!-- 연도별 통계 -->
+    <div class="stats-card">
+      <div class="year-display">
+        <span class="year-label">YEAR</span>
+        <span class="year-value" id="currentYear">2005</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="stat-label">서울 총인구</span>
+          <span class="stat-value" id="totalPop">-</span>
+          <span class="stat-delta" id="popDelta"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">서울 평당가(중앙값)</span>
+          <span class="stat-value" id="avgPrice">-</span>
+          <span class="stat-delta" id="priceDelta"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 타임라인 컨트롤 -->
+    <div class="timeline-section">
+      <div class="timeline-header">
+        <span>Timeline</span>
+        <span id="yearRange">2005 - 2025</span>
+      </div>
+      <input type="range" id="yearSlider" min="0" max="4" value="0" step="1" />
+      <div class="slider-ticks" id="sliderTicks">
+        <span data-idx="0">2005</span><span data-idx="1">2010</span><span data-idx="2">2015</span><span data-idx="3">2020</span><span data-idx="4">2025</span>
+      </div>
+      <div class="timeline-controls">
+        <button id="prevBtn" title="이전 시점 (←)">◀</button>
+        <button id="playBtn" title="재생/정지 (Space)">▶</button>
+        <button id="nextBtn" title="다음 시점 (→)">▶</button>
+      </div>
+      <div class="speed-control">
+        <span>속도</span>
+        <select id="speedSelect">
+          <option value="4000">0.5x</option>
+          <option value="2500" selected>1x</option>
+          <option value="1200">2x</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 표시 옵션 -->
+    <div class="display-options">
+      <div class="option-group">
+        <span class="option-label">지도 표시</span>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-mode="dots">인구 점</button>
+          <button class="toggle-btn" data-mode="choropleth">집값 색</button>
+          <button class="toggle-btn" data-mode="both">점 + 색</button>
+        </div>
+      </div>
+      <div class="option-group">
+        <span class="option-label">코호트 스케일</span>
+        <select id="scaleSelect">
+          <option value="5000">1점 = 5,000명</option>
+          <option value="10000" selected>1점 = 10,000명</option>
+          <option value="20000">1점 = 20,000명</option>
+          <option value="50000">1점 = 50,000명</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 범례 -->
+    <div class="legend" id="legend">
+      <div class="legend-section" id="dotLegend">
+        <span class="legend-title">인구</span>
+        <div class="legend-item">
+          <span class="dot"></span>
+          <span>= <span id="scaleLabel">10,000</span>명</span>
+        </div>
+      </div>
+      <div class="legend-section" id="colorLegend" style="display:none;">
+        <span class="legend-title">평당가 중앙값 (만원)</span>
+        <div class="color-scale">
+          <div class="color-bar"></div>
+          <div class="color-labels">
+            <span>500</span>
+            <span>5,000</span>
+            <span>10,000+</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 주요 연도 이벤트 -->
+    <div class="events-section">
+      <span class="section-title">시점별 한눈에 보기</span>
+      <div class="event-list" id="eventList">
+        <div class="event" data-year="2005">
+          <span class="event-year">2005</span>
+          <span class="event-text">실거래 자료가 막 쌓이기 시작한 때 (참고용)</span>
+        </div>
+        <div class="event" data-year="2010">
+          <span class="event-year">2010</span>
+          <span class="event-text">금융위기 직후 · 5개 시점 중 인구 최다</span>
+        </div>
+        <div class="event" data-year="2015">
+          <span class="event-year">2015</span>
+          <span class="event-text">거래는 활발, 가격은 5년째 제자리</span>
+        </div>
+        <div class="event" data-year="2020">
+          <span class="event-year">2020</span>
+          <span class="event-text">코로나19·저금리, 집값 급등</span>
+        </div>
+        <div class="event" data-year="2025">
+          <span class="event-year">2025</span>
+          <span class="event-text">인구 최저 · 평당가 최고</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 출처 -->
+    <footer class="panel-footer">
+      <p class="source">인구: 서울 열린데이터광장(주민등록) | 집값: 국토교통부 아파트 매매 실거래가</p>
+      <p class="source">평당가 = 전용면적 ㎡당 거래가 중앙값 × 3.3058 (계약 해제 건 제외)</p>
+      <p class="warning" id="dataWarning"></p>
+    </footer>
+  </aside>
+
+  <!-- 오른쪽 지도 -->
+  <main class="map-container">
+    <div id="map"></div>
+
+    <!-- 확대/축소 버튼 -->
+    <div class="map-controls">
+      <button id="zoomIn" title="확대">+</button>
+      <button id="zoomOut" title="축소">−</button>
+      <button id="zoomReset" title="초기화">⌂</button>
+    </div>
+
+    <!-- 중앙 연도 표시 -->
+    <div class="map-year-overlay" id="mapYearOverlay">
+      <span class="map-year">2005</span>
+    </div>
+  </main>
+
+  <!-- 구 상세 사이드 패널 -->
+  <div class="detail-panel" id="detailPanel">
+    <button class="close-btn" id="closeDetail">×</button>
+    <div class="detail-content">
+      <h2 class="detail-title" id="detailTitle">강남구</h2>
+      <p class="detail-period" id="detailPeriod">1970년대 개발</p>
+      <p class="detail-story" id="detailStory">영동개발, 대한민국 부동산의 상징</p>
+
+      <!-- 미니 차트 -->
+      <div class="mini-charts">
+        <div class="mini-chart">
+          <span class="chart-title">인구 추이</span>
+          <canvas id="popChart" width="280" height="120"></canvas>
+        </div>
+        <div class="mini-chart">
+          <span class="chart-title">평당가 추이 (중앙값)</span>
+          <canvas id="priceChart" width="280" height="120"></canvas>
+        </div>
+      </div>
+
+      <!-- 현재 연도 수치 -->
+      <div class="detail-stats">
+        <div class="detail-stat">
+          <span class="label">인구</span>
+          <span class="value" id="detailPop">527,834</span>
+        </div>
+        <div class="detail-stat">
+          <span class="label">인구밀도</span>
+          <span class="value" id="detailDensity">13,362명/km²</span>
+        </div>
+        <div class="detail-stat">
+          <span class="label">평당가 · 거래</span>
+          <span class="value" id="detailPrice">8,950만원</span>
+        </div>
+        <div class="detail-stat">
+          <span class="label">변화</span>
+          <span class="value" id="detailChange">인구 -2.2%, 집값 +238%</span>
+        </div>
+      </div>
+
+      <!-- 옛 사진 (하이라이트 구만) -->
+      <div class="old-photo" id="oldPhotoSection" style="display:none;">
+        <span class="photo-title">📷 옛 모습</span>
+        <div class="photo-placeholder" id="photoPlaceholder">
+          <p>서울사진아카이브에서<br>이미지를 추가하세요</p>
+          <a href="https://photoarchives.seoul.go.kr" target="_blank">서울사진아카이브 →</a>
+        </div>
+      </div>
+
+      <!-- 외부 링크 -->
+      <div class="external-links">
+        <a id="newsLink" href="#" target="_blank" rel="noopener" class="link-btn news">
+          <span id="newsLabel">관련 뉴스</span>
+          <span class="arrow">→</span>
+        </a>
+        <a id="naverLink" href="#" target="_blank" class="link-btn naver">
+          <span>네이버부동산</span>
+          <span class="arrow">→</span>
+        </a>
+        <a id="hogang" href="#" target="_blank" class="link-btn hogang">
+          <span>호갱노노</span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="data/population.js"></script>
+  <script src="data/price.js"></script>
+  <script src="data/meta.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
